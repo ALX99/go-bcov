@@ -58,7 +58,7 @@ func run(ctx context.Context, in io.Reader, out io.Writer) error {
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(os.Stderr, "Sonarqube coverage report generated in %s from %d files.\n",
+		fmt.Fprintf(os.Stderr, "Coverage report generated in %s from %d files.\n",
 			time.Since(t).Round(time.Millisecond), fCount)
 		return encoder.Flush()
 	default:
