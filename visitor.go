@@ -11,7 +11,7 @@ type fileVisitor struct {
 	fset     fSet
 	fileData []byte
 	profile  *cover.Profile
-	lines    map[int]Line
+	file     file
 }
 
 func (v *fileVisitor) Visit(node ast.Node) ast.Visitor {
@@ -32,22 +32,21 @@ func (v *fileVisitor) Visit(node ast.Node) ast.Visitor {
 				continue
 			}
 			for i := b.StartLine; i <= b.EndLine; i++ {
-				covered := b.Count > 0
-				line, ok := v.lines[i]
+				line, ok := v.file.lines[i]
 				if !ok {
-					line = Line{Number: i, Covered: covered}
+					line = Line{}
 				}
-				line.Covered = line.Covered || covered
-				v.lines[i] = line
+				line.CoveredCount += b.Count
+				v.file.lines[i] = line
 			}
 		}
 		switch n := n.(type) {
 		case *ast.IfStmt:
 			startLine = v.fset.getPos(n.If).Line
 
-			line, ok := v.lines[startLine]
+			line, ok := v.file.lines[startLine]
 			if !ok {
-				line = Line{Number: startLine}
+				line = Line{}
 			}
 			// nil protection
 			line.BranchesToCover = cmp.Or(line.BranchesToCover, ptr(0))
@@ -58,13 +57,13 @@ func (v *fileVisitor) Visit(node ast.Node) ast.Visitor {
 			*line.BranchesToCover += branches
 			*line.CoveredBranches += covered
 
-			v.lines[startLine] = line
+			v.file.lines[startLine] = line
 		case *ast.SwitchStmt:
 			startLine = v.fset.getPos(n.Switch).Line
 
-			line, ok := v.lines[startLine]
+			line, ok := v.file.lines[startLine]
 			if !ok {
-				line = Line{Number: startLine}
+				line = Line{}
 			}
 			// nil protection
 			line.BranchesToCover = cmp.Or(line.BranchesToCover, ptr(0))
@@ -75,7 +74,7 @@ func (v *fileVisitor) Visit(node ast.Node) ast.Visitor {
 			*line.BranchesToCover += branches
 			*line.CoveredBranches += covered
 
-			v.lines[startLine] = line
+			v.file.lines[startLine] = line
 
 		}
 	}

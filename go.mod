@@ -1,4 +1,4 @@
-module github.com/alx99/go-sonarcover
+module github.com/alx99/go-bcov
 
 go 1.23.1
 

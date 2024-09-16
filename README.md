@@ -1,27 +1,33 @@
-# go-sonarcover
+# go-bcov
 
 <p align="center">
-  <img src="https://github.com/ALX99/go-sonarcover/blob/main/logo.png" />
+  <img src="https://github.com/ALX99/go-bcov/blob/main/logo.png" />
 </p>
 
 ## Description
 
-`go-sonarcover` is a tool to generate [generic coverage reports](https://docs.sonarsource.com/sonarqube/latest/analyzing-source-code/test-coverage/generic-test-data/) for SonarQube from Go coverage files.
+`go-bcov` is a tool to calculate branch coverage from Go coverage reports.
 
-It reads the coverage file from standard input and writes the generic coverage report to standard output
-which includes both line and branch coverage.
+It reads the coverage file from standard input and writes to standard output.
+
+### Supported output formats
+
+- [Sonarqube coverage report](https://docs.sonarsource.com/sonarqube/latest/analyzing-source-code/test-coverage/generic-test-data/) for SonarQube from Go coverage files.
+  - Both line and branch coverage are supported.
 
 ## Installation
 
 ```bash
-go install github.com/alx99/go-sonarcover@latest
+go install github.com/alx99/go-bcov@latest
 ```
 
 ## Usage
 
+### Sonarqube coverage report
+
 ```bash
 go test -coverprofile=coverage.out -covermode count ./...
-go-sonarcover < coverage.out > coverage.xml
+go-bcov -format sonar-cover-report < coverage.out > coverage.xml
 
 # And upload ...
 sonar-scanner-cli \

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/xml"
+	"flag"
 	"fmt"
 	"go/ast"
 	"go/build"
@@ -20,45 +21,53 @@ import (
 	"golang.org/x/tools/cover"
 )
 
+var (
+	supportedFormats = []string{"sonar-cover-report"}
+	format           = flag.String("format", "reserved", "output format")
+)
+
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
 	defer cancel()
+	flag.Parse()
 
-	t := time.Now()
-	fCount, err := run(ctx, os.Stdin, os.Stdout)
-	if err != nil {
+	if err := run(ctx, os.Stdin, os.Stdout); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
-
-	fmt.Fprintf(os.Stderr, "Sonarqube coverage report generated in %s from %d files.\n",
-		time.Since(t).Round(time.Millisecond), fCount)
 }
 
-func run(ctx context.Context, in io.Reader, out io.Writer) (int, error) {
+func run(ctx context.Context, in io.Reader, out io.Writer) error {
+	t := time.Now()
 	profiles, err := cover.ParseProfilesFromReader(in)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
-	lines, fCount, err := getCoverage(ctx, profiles)
+	report, fCount, err := getCoverage(ctx, profiles)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
-	fmt.Fprintf(out, xml.Header)
-	encoder := xml.NewEncoder(out)
-	encoder.Indent("", "\t")
-	err = encoder.Encode(makeCoverage(lines))
-	if err != nil {
-		return 0, err
+	switch *format {
+	case "sonar-cover-report":
+		fmt.Fprintf(out, xml.Header)
+		encoder := xml.NewEncoder(out)
+		encoder.Indent("", "\t")
+		err = report.ToSonarCoverage(encoder)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(os.Stderr, "Sonarqube coverage report generated in %s from %d files.\n",
+			time.Since(t).Round(time.Millisecond), fCount)
+		return encoder.Flush()
+	default:
+		return fmt.Errorf("unknown format %q: must be one of %v", *format, supportedFormats)
 	}
-
-	return fCount, encoder.Flush()
 }
 
-func getCoverage(ctx context.Context, profiles []*cover.Profile) (filesWithLines, int, error) {
-	lines := make(map[string]map[int]Line)
+func getCoverage(ctx context.Context, profiles []*cover.Profile) (report, int, error) {
+	files := make([]file, 0, len(profiles))
 	fCount := 0
 	mu := sync.Mutex{}
 	eg, _ := errgroup.WithContext(ctx)
@@ -66,47 +75,47 @@ func getCoverage(ctx context.Context, profiles []*cover.Profile) (filesWithLines
 
 	wd, err := os.Getwd()
 	if err != nil {
-		return nil, 0, err
+		return report{}, 0, err
 	}
 
 	for _, profile := range profiles {
 		fCount++
 		eg.Go(func() error {
-			newLines, file, err := getFileCoverage(profile)
+			newLines, fileP, err := getFileCoverage(profile)
 			if err != nil {
 				return err
 			}
 
-			relPath, err := filepath.Rel(wd, file)
+			relPath, err := filepath.Rel(wd, fileP)
 			if err != nil {
 				return err
 			}
 
 			mu.Lock()
-			lines[relPath] = newLines
+			files = append(files, file{path: relPath, lines: newLines.lines})
 			mu.Unlock()
 
 			return nil
 		})
 	}
 
-	return lines, fCount, eg.Wait()
+	return report{files: files}, fCount, eg.Wait()
 }
 
-func getFileCoverage(profile *cover.Profile) (map[int]Line, string, error) {
+func getFileCoverage(profile *cover.Profile) (file, string, error) {
 	fileName := profile.FileName
 	absFilePath, err := findAbsFile(fileName)
 	if err != nil {
-		return nil, "", err
+		return file{}, "", err
 	}
 	fset := token.NewFileSet()
 	parsed, err := parser.ParseFile(fset, absFilePath, nil, 0)
 	if err != nil {
-		return nil, "", err
+		return file{}, "", err
 	}
 	data, err := os.ReadFile(absFilePath)
 	if err != nil {
-		return nil, "", err
+		return file{}, "", err
 	}
 
 	lines := make(map[int]Line)
@@ -114,14 +123,14 @@ func getFileCoverage(profile *cover.Profile) (map[int]Line, string, error) {
 		fset:     fSet{fset},
 		fileData: data,
 		profile:  profile,
-		lines:    lines,
+		file:     file{lines: lines},
 	}
 	ast.Walk(visitor, parsed)
 
 	// free memory
 	clear(data)
 	clear(visitor.fileData)
-	return lines, absFilePath, nil
+	return visitor.file, absFilePath, nil
 }
 
 func findAbsFile(file string) (string, error) {
