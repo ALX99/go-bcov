@@ -21,7 +21,7 @@ type file struct {
 	lines map[int]Line
 }
 
-func (r report) ToSonarCoverage(e *xml.Encoder) error {
+func (r report) toSonarCoverage(e *xml.Encoder) error {
 	type line struct {
 		LineNumber      int  `xml:"lineNumber,attr"`
 		Covered         bool `xml:"covered,attr"`

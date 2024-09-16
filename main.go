@@ -54,7 +54,7 @@ func run(ctx context.Context, in io.Reader, out io.Writer) error {
 		fmt.Fprintf(out, xml.Header)
 		encoder := xml.NewEncoder(out)
 		encoder.Indent("", "\t")
-		err = report.ToSonarCoverage(encoder)
+		err = report.toSonarCoverage(encoder)
 		if err != nil {
 			return err
 		}
