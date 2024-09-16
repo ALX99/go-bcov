@@ -10,15 +10,18 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
 	"golang.org/x/tools/cover"
 )
 
 func main() {
+	t := time.Now()
 	if err := run(os.Stdin, os.Stdout); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
+	fmt.Fprintf(os.Stderr, "Generic sonarqube coverage report generated in %s\n", time.Since(t))
 }
 
 func run(in io.Reader, out io.Writer) error {
