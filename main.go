@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/xml"
 	"fmt"
 	"go/ast"
@@ -9,30 +10,40 @@ import (
 	"go/token"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"sync"
+	"syscall"
 	"time"
 
+	"golang.org/x/sync/errgroup"
 	"golang.org/x/tools/cover"
 )
 
 func main() {
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
+	defer cancel()
+
 	t := time.Now()
-	if err := run(os.Stdin, os.Stdout); err != nil {
+	fCount, err := run(ctx, os.Stdin, os.Stdout)
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
-	fmt.Fprintf(os.Stderr, "Generic sonarqube coverage report generated in %s\n", time.Since(t))
+
+	fmt.Fprintf(os.Stderr, "Sonarqube coverage report generated in %s from %d files.\n",
+		time.Since(t).Round(time.Millisecond), fCount)
 }
 
-func run(in io.Reader, out io.Writer) error {
+func run(ctx context.Context, in io.Reader, out io.Writer) (int, error) {
 	profiles, err := cover.ParseProfilesFromReader(in)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	lines, err := getCoverage(profiles)
+	lines, fCount, err := getCoverage(ctx, profiles)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	fmt.Fprintf(out, xml.Header)
@@ -40,33 +51,46 @@ func run(in io.Reader, out io.Writer) error {
 	encoder.Indent("", "\t")
 	err = encoder.Encode(makeCoverage(lines))
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	return encoder.Flush()
+	return fCount, encoder.Flush()
 }
 
-func getCoverage(profiles []*cover.Profile) (filesWithLines, error) {
+func getCoverage(ctx context.Context, profiles []*cover.Profile) (filesWithLines, int, error) {
 	lines := make(map[string]map[int]Line)
-	for _, profile := range profiles {
-		newLines, file, err := getFileCoverage(profile)
-		if err != nil {
-			return nil, err
-		}
+	fCount := 0
+	mu := sync.Mutex{}
+	eg, _ := errgroup.WithContext(ctx)
+	eg.SetLimit(max(len(profiles), 50))
 
-		wd, err := os.Getwd()
-		if err != nil {
-			return nil, err
-		}
-
-		relPath, err := filepath.Rel(wd, file)
-		if err != nil {
-			return nil, err
-		}
-
-		lines[relPath] = newLines
+	wd, err := os.Getwd()
+	if err != nil {
+		return nil, 0, err
 	}
-	return lines, nil
+
+	for _, profile := range profiles {
+		fCount++
+		eg.Go(func() error {
+			newLines, file, err := getFileCoverage(profile)
+			if err != nil {
+				return err
+			}
+
+			relPath, err := filepath.Rel(wd, file)
+			if err != nil {
+				return err
+			}
+
+			mu.Lock()
+			lines[relPath] = newLines
+			mu.Unlock()
+
+			return nil
+		})
+	}
+
+	return lines, fCount, eg.Wait()
 }
 
 func getFileCoverage(profile *cover.Profile) (map[int]Line, string, error) {
@@ -93,6 +117,10 @@ func getFileCoverage(profile *cover.Profile) (map[int]Line, string, error) {
 		lines:    lines,
 	}
 	ast.Walk(visitor, parsed)
+
+	// free memory
+	clear(data)
+	clear(visitor.fileData)
 	return lines, absFilePath, nil
 }
 
