@@ -16,14 +16,6 @@ go install github.com/alx99/go-bcov@v1
 
 ## Usage
 
-```bash
-$ go-bcov -h
-
-Usage of go-bcov:
-  -format string
-    	output format (default "reserved")
-```
-
 ### Sonarqube coverage report
 
 ```bash
