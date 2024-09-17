@@ -14,8 +14,22 @@ The coverage file is read from standard input and the report is generated to sta
 
 ## Installation
 
+### Preferred
+
 ```bash
 go install github.com/alx99/go-bcov@v1
+```
+
+### Prebuilt binaries
+
+You can download binaries from the [releases page](https://github.com/ALX99/go-bcov/releases).
+Note that this project has a dependency on the `go` tool, so you will need to have it installed.
+
+If you face an error like `go/build: go list fork/exec /opt/hostedtoolcache/go/1.23.1/x64/bin/go: no such file or directory`
+when executing the prebuilt binary, please use the preferred installation method or try the following workaround:
+
+```bash
+GOROOT="$(go env GOROOT)" ./go-bcov
 ```
 
 ## Usage
