@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"syscall"
 	"time"
@@ -71,7 +72,7 @@ func getCoverage(ctx context.Context, profiles []*cover.Profile) (report, int, e
 	fCount := 0
 	mu := sync.Mutex{}
 	eg, _ := errgroup.WithContext(ctx)
-	eg.SetLimit(max(len(profiles), 50))
+	eg.SetLimit(min(runtime.NumCPU()*2, len(profiles)))
 
 	wd, err := os.Getwd()
 	if err != nil {
