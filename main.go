@@ -11,9 +11,11 @@ import (
 	"go/token"
 	"io"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -39,6 +41,9 @@ func main() {
 }
 
 func run(ctx context.Context, in io.Reader, out io.Writer) error {
+	if err := setDefaultBuildGOROOT(); err != nil {
+		return err
+	}
 	t := time.Now()
 	profiles, err := cover.ParseProfilesFromReader(in)
 	if err != nil {
@@ -141,4 +146,14 @@ func findAbsFile(file string) (string, error) {
 		return "", err
 	}
 	return filepath.Join(pkg.Dir, file), nil
+}
+
+func setDefaultBuildGOROOT() error {
+	cmd := exec.Command("go", "env", "GOROOT")
+	output, err := cmd.Output()
+	if err != nil {
+		return err
+	}
+	build.Default.GOROOT = strings.TrimSpace(string(output))
+	return nil
 }
