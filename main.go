@@ -136,6 +136,23 @@ func getFileCoverage(profile *cover.Profile) (file, string, error) {
 	// free memory
 	clear(data)
 	clear(visitor.fileData)
+
+	for i, f := range visitor.file.lines {
+		if !f.IsSingleIf {
+			continue
+		}
+		// invalid if body start line
+		if _, ok := visitor.file.lines[f.IfBodyStartLine]; !ok {
+			continue
+		}
+
+		// if the coverage count of the if condition itself is different from the coverage count of the
+		// first line of the if body, we guess that the if condition has evaluated to both true and false
+		if visitor.file.lines[f.IfBodyStartLine].CoveredCount !=
+			visitor.file.lines[i].CoveredCount {
+			*visitor.file.lines[i].CoveredBranches += 1
+		}
+	}
 	return visitor.file, absFilePath, nil
 }
 

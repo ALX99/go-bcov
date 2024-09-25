@@ -17,10 +17,7 @@ func (f fSet) getPos(pos token.Pos) token.Position {
 }
 
 func (f fSet) checkIfBranchCovered(ifStmt *ast.IfStmt, blocks blocks) (branches, covered int) {
-	branches = 1
-	if ifStmt.Else != nil {
-		branches++
-	}
+	branches = 2
 
 	// Check the body of the if statement
 	stmtscovered := true

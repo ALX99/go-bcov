@@ -51,6 +51,11 @@ func (v *fileVisitor) Visit(node ast.Node) ast.Visitor {
 			// nil protection
 			line.BranchesToCover = cmp.Or(line.BranchesToCover, ptr(0))
 			line.CoveredBranches = cmp.Or(line.CoveredBranches, ptr(0))
+			line.IsSingleIf = n.Else == nil
+			line.IfBodyStartLine = -1
+			if len(n.Body.List) >= 1 {
+				line.IfBodyStartLine = v.fset.getPos(n.Body.List[0].Pos()).Line
+			}
 
 			branches, covered := v.fset.checkIfBranchCovered(n, v.profile.Blocks)
 

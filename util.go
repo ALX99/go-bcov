@@ -7,9 +7,11 @@ import (
 type filesWithLines map[string]map[int]Line
 
 type Line struct {
+	IsSingleIf      bool
 	CoveredCount    int
 	BranchesToCover *int
 	CoveredBranches *int
+	IfBodyStartLine int
 }
 
 type report struct {
