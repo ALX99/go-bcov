@@ -36,7 +36,7 @@ func (v *fileVisitor) Visit(node ast.Node) ast.Visitor {
 				if !ok {
 					line = Line{}
 				}
-				line.CoveredCount += b.Count
+				line.CoveredCount = max(b.Count, line.CoveredCount)
 				v.file.lines[i] = line
 			}
 		}
