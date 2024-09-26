@@ -16,10 +16,9 @@ func (f fSet) getPos(pos token.Pos) token.Position {
 	return f.Position(pos)
 }
 
-func (f fSet) checkIfBranchCovered(ifStmt *ast.IfStmt, blocks blocks) (branches, covered int) {
-	branches = 2
+func (f fSet) checkIfBranchCovered(ifStmt *ast.IfStmt, blocks blocks) int {
+	covered := 0
 
-	// Check the body of the if statement
 	stmtscovered := true
 	for _, stmt := range ifStmt.Body.List {
 		start := f.getPos(stmt.Pos())
@@ -29,33 +28,17 @@ func (f fSet) checkIfBranchCovered(ifStmt *ast.IfStmt, blocks blocks) (branches,
 			break
 		}
 	}
+
 	if stmtscovered {
 		covered++
 	}
 
-	if ifStmt.Else == nil {
-		return
+	if len(ifStmt.Body.List) > 0 &&
+		blocks.getCoveredCount(f.getPos(ifStmt.Cond.Pos())) > blocks.getCoveredCount(f.getPos(ifStmt.Body.List[0].Pos())) {
+		covered++
 	}
 
-	// Check the body of the else statement
-	switch elseStmt := ifStmt.Else.(type) {
-	case *ast.BlockStmt:
-		for _, stmt := range elseStmt.List {
-			start := f.getPos(stmt.Pos())
-			end := f.getPos(stmt.End())
-			if blocks.allLinesCovered(start.Line, end.Line, start.Column, end.Column) {
-				covered++
-				break
-			}
-		}
-	case *ast.IfStmt:
-		// Handle else-if case
-		branchesElse, coveredElse := f.checkIfBranchCovered(elseStmt, blocks)
-		branches += branchesElse - 1 // subtract 1 because the else-if adds an extra branch
-		covered += coveredElse
-	}
-
-	return
+	return covered
 }
 
 func (f fSet) checkSwitchBranchCovered(switchStmt *ast.SwitchStmt, blocks blocks) (branches, covered int) {
