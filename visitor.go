@@ -12,6 +12,10 @@ type fileVisitor struct {
 	fileData []byte
 	profile  *cover.Profile
 	file     file
+
+	// switchCoverage is a map of the line number of case statements
+	// to the corresponding switch statement's coverage count
+	switchCoverageCount map[int]int
 }
 
 func (v *fileVisitor) Visit(node ast.Node) ast.Visitor {
@@ -56,7 +60,18 @@ func (v *fileVisitor) Visit(node ast.Node) ast.Visitor {
 
 			v.file.lines[startLine] = line
 		case *ast.SwitchStmt:
-			startLine = v.fset.getPos(n.Switch).Line
+			coverageCount := blocks(v.profile.Blocks).getCoveredCount(v.fset.getPos(n.Switch))
+			for _, stmt := range n.Body.List {
+				if c, ok := stmt.(*ast.CaseClause); ok {
+					v.switchCoverageCount[v.fset.getPos(c.Case).Line] = coverageCount
+				}
+			}
+		case *ast.CaseClause:
+			if n.List == nil {
+				break
+			}
+
+			startLine = v.fset.getPos(n.Pos()).Line
 
 			line, ok := v.file.lines[startLine]
 			if !ok {
@@ -65,11 +80,8 @@ func (v *fileVisitor) Visit(node ast.Node) ast.Visitor {
 			// nil protection
 			line.BranchesToCover = cmp.Or(line.BranchesToCover, ptr(0))
 			line.CoveredBranches = cmp.Or(line.CoveredBranches, ptr(0))
-
-			branches, covered := v.fset.checkSwitchBranchCovered(n, v.profile.Blocks)
-
-			*line.BranchesToCover += branches
-			*line.CoveredBranches += covered
+			*line.CoveredBranches = v.fset.checkCaseCoverage(n, v.switchCoverageCount, v.profile.Blocks)
+			*line.BranchesToCover = 2
 
 			v.file.lines[startLine] = line
 

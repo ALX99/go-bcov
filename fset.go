@@ -41,27 +41,27 @@ func (f fSet) checkIfBranchCovered(ifStmt *ast.IfStmt, blocks blocks) int {
 	return covered
 }
 
-func (f fSet) checkSwitchBranchCovered(switchStmt *ast.SwitchStmt, blocks blocks) (branches, covered int) {
-	for _, stmt := range switchStmt.Body.List {
-		caseClause, ok := stmt.(*ast.CaseClause)
-		if !ok {
-			continue
-		}
-		branches++
+func (f fSet) checkCaseCoverage(caseStmt *ast.CaseClause, magicMap map[int]int, blocks blocks) int {
+	covered := 0
 
-		stmtscovered := true
-		for _, stmt := range caseClause.Body {
-			start := f.getPos(stmt.Pos())
-			end := f.getPos(stmt.End())
-			if !blocks.allLinesCovered(start.Line, end.Line, start.Column, end.Column) {
-				stmtscovered = false
-				break
-			}
-		}
-
-		if stmtscovered {
-			covered++
+	stmtscovered := true
+	for _, stmt := range caseStmt.Body {
+		start := f.getPos(stmt.Pos())
+		end := f.getPos(stmt.End())
+		if !blocks.allLinesCovered(start.Line, end.Line, start.Column, end.Column) {
+			stmtscovered = false
+			break
 		}
 	}
-	return
+
+	if stmtscovered {
+		covered++
+	}
+
+	if len(caseStmt.Body) > 0 &&
+		magicMap[f.getPos(caseStmt.Case).Line] > blocks.getCoveredCount(f.getPos(caseStmt.Body[0].Pos())) {
+		covered++
+	}
+
+	return covered
 }

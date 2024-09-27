@@ -126,10 +126,11 @@ func getFileCoverage(profile *cover.Profile) (file, string, error) {
 
 	lines := make(map[int]Line)
 	visitor := &fileVisitor{
-		fset:     fSet{fset},
-		fileData: data,
-		profile:  profile,
-		file:     file{lines: lines},
+		fset:                fSet{fset},
+		fileData:            data,
+		profile:             profile,
+		file:                file{lines: lines},
+		switchCoverageCount: make(map[int]int),
 	}
 	ast.Walk(visitor, parsed)
 
