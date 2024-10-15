@@ -84,7 +84,25 @@ func (v *fileVisitor) Visit(node ast.Node) ast.Visitor {
 			*line.BranchesToCover = 2
 
 			v.file.lines[startLine] = line
+		case *ast.ForStmt:
+			// red herring
+			if n.Cond == nil {
+				break
+			}
+			startLine = v.fset.getPos(n.Pos()).Line
 
+			line, ok := v.file.lines[startLine]
+			if !ok {
+				line = Line{}
+			}
+
+			// nil protection
+			line.BranchesToCover = cmp.Or(line.BranchesToCover, ptr(0))
+			line.CoveredBranches = cmp.Or(line.CoveredBranches, ptr(0))
+			*line.CoveredBranches = v.fset.checkForCoverage(n, v.profile.Blocks)
+			*line.BranchesToCover = 2
+
+			v.file.lines[startLine] = line
 		}
 	}
 	return v

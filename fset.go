@@ -65,3 +65,30 @@ func (f fSet) checkCaseCoverage(caseStmt *ast.CaseClause, magicMap map[int]int, 
 
 	return covered
 }
+
+func (f fSet) checkForCoverage(forStmt *ast.ForStmt, blocks blocks) int {
+	covered := 0
+
+	// It was at least true once
+	stmtscovered := true
+	for _, stmt := range forStmt.Body.List {
+		start := f.getPos(stmt.Pos())
+		end := f.getPos(stmt.End())
+		if !blocks.allLinesCovered(start.Line, end.Line, start.Column, end.Column) {
+			stmtscovered = false
+			break
+		}
+	}
+
+	if stmtscovered {
+		covered++
+	}
+
+	if len(forStmt.Body.List) > 0 &&
+		// Guess that the condition eventually became false
+		blocks.getCoveredCount(f.getPos(forStmt.Cond.Pos())) != blocks.getCoveredCount(f.getPos(forStmt.Body.List[0].Pos())) {
+		covered++
+	}
+
+	return covered
+}
